@@ -1,0 +1,82 @@
+############################
+# Docker runtime state
+############################
+
+# Bind-mounted Docker data (created by containers)
+docker-volume/
+volumes/
+
+# Docker artifacts
+*.pid
+*.sock
+
+
+############################
+# Databases / Services
+############################
+
+# MySQL / Airflow / OpenMetadata data
+**/db-data/
+**/mysql/
+**/performance_schema/
+**/sys/
+
+# SQL Server backups & data (runtime artifacts)
+volumes/sqlserver-backups/
+*.bak
+
+
+############################
+# dbt (generated artifacts)
+############################
+
+# dbt build output
+dbt/target/
+dbt/logs/
+
+# dbt temporary / cache files
+dbt/.user.yml
+dbt/.profiles.yml
+
+
+############################
+# Logs
+############################
+
+# Service logs
+**/logs/
+*.log
+
+
+############################
+# Python artifacts
+############################
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+
+
+############################
+# OS / Editor noise
+############################
+
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+
+############################
+# Optional safety ignores
+############################
+
+# Local overrides (never commit secrets)
+*.env
+*.local
+

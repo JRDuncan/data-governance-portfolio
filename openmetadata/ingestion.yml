@@ -1,0 +1,30 @@
+source:
+  type: mssql
+  serviceName: AdventureWorksDW
+  serviceConnection:
+    config:
+      type: MSSQL
+      username: ${DBT_USER}
+      password: ${DBT_PASSWORD}
+      hostPort: ${DBT_SERVER}:${DBT_PORT}
+      database: ${DBT_DATABASE}
+  sourceConfig:
+    config:
+      includeTables: true
+      includeViews: true
+
+sink:
+  type: metadata-rest
+  config:
+    apiEndpoint: http://openmetadata_server:8585/api
+
+workflowConfig:
+  loggerLevel: INFO
+
+processors:
+  - type: dbt
+    config:
+      manifestPath: /usr/app/dbt/target/manifest.json
+      catalogPath: /usr/app/dbt/target/catalog.json
+      runResultsPath: /usr/app/dbt/target/run_results.json
+

@@ -1,0 +1,16 @@
+adventureworks_profile:
+  target: dev
+  outputs:
+    dev:
+      type: sqlserver
+      driver: 'ODBC Driver 18 for SQL Server'
+      server: sqlserver
+      port: 1433
+      user: sa
+      password: YourStrong!Passw0rd
+      database: AdventureWorksDW2022
+      schema: dbo
+      trust_cert: True
+      encrypt: True
+      authentication: 'sql'
+
