@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: adventureworks_bronze
+    database: AdventureWorks_Staging
+    schema: dbo
+    description: "Bronze CDC tables from Kafka (Debezium)"
+
+    tables:
+      - name: bronze_aw_AdventureWorks2022_Sales_SalesOrderHeader
+        description: "CDC Bronze table for SalesOrderHeader"
+
+      - name: bronze_aw_AdventureWorks2022_Sales_SalesOrderDetail
+        description: "CDC Bronze table for SalesOrderDetail"

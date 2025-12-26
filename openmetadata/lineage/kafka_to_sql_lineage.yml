@@ -1,0 +1,11 @@
+source:
+  type: kafka-lineage
+  serviceName: kafka_aw
+sink:
+  type: metadata-rest
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: ${OM_HOST_PORT}
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OM_JWT}

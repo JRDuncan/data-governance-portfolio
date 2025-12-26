@@ -1,0 +1,6 @@
+name: kafka_aw
+serviceType: Kafka
+description: Kafka service for AdventureWorks CDC
+connection:
+  config:
+    bootstrapServers: kafka:9092

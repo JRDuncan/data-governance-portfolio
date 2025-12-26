@@ -14,6 +14,5 @@ clean-targets: ["target"]
 
 models:
   adventureworks_dbt:
-    +schema: dbo
     +materialized: view
 

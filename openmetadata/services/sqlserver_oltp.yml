@@ -1,0 +1,10 @@
+name: sqlserver_oltp
+serviceType: Mssql  # ← Change from MSSQL to SqlServer
+description: OLTP SQL Server for AdventureWorks
+connection:
+  config:
+    hostPort: sqlserver:1433
+    database: AdventureWorks2022
+    username: sa
+    password: ${MSSQL_SA_PASSWORD}
+    encrypt: false

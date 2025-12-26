@@ -29,6 +29,10 @@ volumes/sqlserver-backups/
 ############################
 # dbt (generated artifacts)
 ############################
+# dbt specific
+dbt/dbt_packages/
+dbt/modules/
+dbt/profiles.yml
 
 # dbt build output
 dbt/target/
@@ -79,4 +83,4 @@ venv/
 # Local overrides (never commit secrets)
 *.env
 *.local
-
+secrets/

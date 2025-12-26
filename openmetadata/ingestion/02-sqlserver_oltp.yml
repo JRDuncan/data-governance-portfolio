@@ -1,0 +1,30 @@
+source:
+  type: mssql
+  serviceName: sqlserver_oltp  # Your registered service name
+  serviceConnection:
+    config:
+      type: Mssql
+      hostPort: sqlserver:1433
+      database: AdventureWorks2022
+      username: sa
+      password: ${SQLSERVER_PASSWORD}
+      encrypt: false
+      trustServerCertificate: true  # For self-signed cert
+  sourceConfig:
+    config:
+      type: DatabaseMetadata  # Add this missing block
+      #databaseFilterPattern:
+      #  includes: [AdventureWorks2022]
+      #schemaFilterPattern:
+      #  includes: [Sales, Person, Production, dbo] # List the schemas you want
+      includeTables: true
+      includeViews: true
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT}

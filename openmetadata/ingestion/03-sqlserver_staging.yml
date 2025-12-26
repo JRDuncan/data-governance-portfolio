@@ -1,0 +1,29 @@
+source:
+  type: mssql
+  serviceName: sqlserver_staging  # Your registered service name (was adventureworks_staging)
+  serviceConnection:
+    config:
+      type: Mssql
+      hostPort: sqlserver:1433
+      database: AdventureWorks_Staging
+      username: sa
+      password: ${SQLSERVER_PASSWORD}
+      encrypt: false
+      trustServerCertificate: true
+  sourceConfig:
+    config:
+      type: DatabaseMetadata
+      databaseFilterPattern:
+        includes: [AdventureWorks_Staging]
+      schemaFilterPattern:
+        includes: [dbo] # Most common, or specify your specific schema
+      includeTables: true
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT}

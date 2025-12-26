@@ -1,0 +1,24 @@
+{
+  "name": "adventureworks-jdbc-sink-bronze",
+  "config": {
+    "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "aw.AdventureWorks2022.Sales.SalesOrderHeader,aw.AdventureWorks2022.Sales.SalesOrderDetail",
+    "connection.url": "jdbc:sqlserver://sqlserver:1433;databaseName=AdventureWorks_Staging;encrypt=true;trustServerCertificate=true",
+    "connection.username": "dbt_user",
+    "connection.password": "DbtStrong!",
+    "insert.mode": "upsert",
+    "primary.key.mode": "record_key",
+    "table.name.format": "bronze_${topic}",
+    "schema.name.adjustment.mode": "avro",
+    "delete.enabled": "true",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "schema.evolution": "basic",
+    "dialect.sqlserver.identity.inserts": "true",
+    "quote.identifiers": "true",
+    "database.time_zone": "UTC"
+  }
+}

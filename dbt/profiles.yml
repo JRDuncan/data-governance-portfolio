@@ -7,8 +7,8 @@ adventureworks_profile:
       server: sqlserver
       port: 1433
       user: sa
-      password: YourStrong!Passw0rd
-      database: AdventureWorksDW2022
+      password: "{{ env_var('MSSQL_SA_PASSWORD') }}"
+      database: AdventureWorks_Staging
       schema: dbo
       trust_cert: True
       encrypt: True

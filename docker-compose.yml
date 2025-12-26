@@ -64,8 +64,14 @@ services:
       sqlserver:
         condition: service_healthy
     volumes:
-      - ./dbt:/app/dbt 
-    command: ["tail", "-f", "/dev/null"]
+      - ./dbt:/app/dbt
+      - ./dbt/target:/app/dbt/target  # Persistent target folder 
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        dbt deps &&
+        echo "DBT container ready - run commands manually or via CI/CD" &&
+        tail -f /dev/null
     healthcheck:
       test: ["CMD-SHELL", "dbt --version >/dev/null 2>&1"]
       interval: 10s
@@ -104,6 +110,45 @@ services:
     command: ["bash", "/usr/app/scripts/trigger-dbt.sh"]
     networks:
       - app_net    
+  zookeeper:
+    container_name: zookeeper
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app_net
+
+  kafka:
+    container_name: kafka
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - app_net
+
+  debezium:
+    container_name: debezium
+    image: debezium/connect:2.6
+    depends_on:
+      - kafka
+      - sqlserver
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: debezium
+      CONFIG_STORAGE_TOPIC: debezium_configs
+      OFFSET_STORAGE_TOPIC: debezium_offsets
+      STATUS_STORAGE_TOPIC: debezium_status
+    ports:
+      - "8083:8083"
+    networks:
+      - app_net
 
   oltp_generator:
     build:
@@ -139,9 +184,10 @@ services:
     networks:
       - app_net
 
+
   mysql:
     container_name: openmetadata_mysql
-    image: docker.getcollate.io/openmetadata/db:1.10.6
+    image: docker.getcollate.io/openmetadata/db:1.11.3
     command: "--sort_buffer_size=10M"
     restart: always
     environment:
@@ -151,7 +197,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./docker-volume/db-data:/var/lib/mysql
+     - ./docker-volume/db-data:/var/lib/mysql
     networks:
       - app_net
     healthcheck:
@@ -182,7 +228,7 @@ services:
 
   execute-migrate-all:
     container_name: execute_migrate_all
-    image: docker.getcollate.io/openmetadata/server:1.10.6
+    image: docker.getcollate.io/openmetadata/server:1.11.3
     command: "./bootstrap/openmetadata-ops.sh migrate"
     environment:
       OPENMETADATA_CLUSTER_NAME: ${OPENMETADATA_CLUSTER_NAME:-openmetadata}
@@ -400,7 +446,7 @@ services:
   openmetadata-server:
     container_name: openmetadata_server
     restart: always
-    image: docker.getcollate.io/openmetadata/server:1.10.6
+    image: docker.getcollate.io/openmetadata/server:1.11.3
     environment:
       OPENMETADATA_CLUSTER_NAME: ${OPENMETADATA_CLUSTER_NAME:-openmetadata}
       SERVER_PORT: ${SERVER_PORT:-8585}
@@ -613,12 +659,13 @@ services:
 
   ingestion:
     container_name: openmetadata_ingestion
-    image: docker.getcollate.io/openmetadata/ingestion:1.10.6
+    image: docker.getcollate.io/openmetadata/ingestion:1.11.3
     depends_on:
       elasticsearch:
         condition: service_started
       sqlserver:
         condition: service_healthy
+  
       mysql:
         condition: service_healthy
       openmetadata-server:
@@ -633,6 +680,8 @@ services:
       DB_SCHEME: ${AIRFLOW_DB_SCHEME:-mysql+mysqldb}
       DB_USER: ${AIRFLOW_DB_USER:-airflow_user}
       DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow_pass}
+      OPENMETADATA_JWT: ${OPENMETADATA_JWT}
+      SQLSERVER_PASSWORD: ${MSSQL_SA_PASSWORD}
       # extra connection-string properties for the database
       # EXAMPLE 
       # require SSL (only for Postgres)
@@ -656,8 +705,10 @@ services:
       - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs
       - ingestion-volume-dags:/opt/airflow/dags
       - ingestion-volume-tmp:/tmp
+      - ./openmetadata/ingestion:/opt/openmetadata/ingestion:ro  # Mount host dir to container path
+      - ./dbt/target:/opt/dbt/target #No :ro  # Mount host target/ to container path
 
 
 networks:
   app_net:
-      driver: bridge
+    driver: bridge

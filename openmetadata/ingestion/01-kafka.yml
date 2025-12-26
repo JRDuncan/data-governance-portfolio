@@ -1,0 +1,20 @@
+source:
+  type: kafka
+  serviceName: kafka_aw  # Your registered service name
+  serviceConnection:
+    config:
+      type: Kafka
+      bootstrapServers: kafka:9092  # Your Kafka broker
+  sourceConfig:
+    config:
+      type: MessagingMetadata  # Changed from TopicMetadata
+      generateSampleData: true  # Optional: sample messages
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: http://openmetadata-server:8585/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT}

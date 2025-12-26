@@ -1,0 +1,272 @@
+🧭 Authoritative Runbook
+
+End-to-End Startup → CDC → Bronze → OpenMetadata
+
+🟦 Phase 0 — Preconditions (Run Once)
+
+From your repo root:
+
+pwd
+# ~/data-governance-portfolio
+
+
+Verify Docker is clean (recommended before demos):
+
+docker compose down -v
+docker system prune -f
+
+🟦 Phase 1 — Start All Core Services
+1️⃣ Build & start containers
+
+(HOST MACHINE)
+
+docker compose up --build -d
+
+2️⃣ Verify containers are running
+
+(HOST MACHINE)
+
+docker ps
+
+
+You must see (minimum):
+
+sqlserver
+
+kafka
+
+zookeeper
+
+debezium
+
+openmetadata_server
+
+openmetadata_ingestion
+
+openmetadata_mysql
+
+openmetadata_elasticsearch
+
+🟦 Phase 2 — Wait for Platform Readiness
+3️⃣ Wait for all dependencies
+
+(HOST MACHINE)
+
+./bootstrap/01-wait-for-services.sh
+
+
+Expected output:
+
+✅ OpenMetadata is healthy
+✅ Kafka Connect is ready
+✅ SQL Server is accepting connections
+🎉 All core services are ready
+
+
+❌ DO NOT CONTINUE UNTIL THIS PASSES
+
+🟦 Phase 3 — Register Kafka Connect (CDC + Bronze Sink)
+4️⃣ Register Debezium + JDBC Sink
+
+(HOST MACHINE)
+
+./bootstrap/02-register-kafka-connect.sh
+
+
+Expected:
+
+▶ Register Debezium SQL Server CDC
+▶ Register JDBC Sink (Bronze)
+✅ Kafka Connect configured
+
+5️⃣ Validate Kafka topics
+
+(HOST MACHINE)
+
+docker exec -it kafka \
+  kafka-topics --bootstrap-server kafka:9092 --list
+
+
+You MUST see:
+
+aw.AdventureWorks2022.Sales.SalesOrderHeader
+aw.AdventureWorks2022.Sales.SalesOrderDetail
+
+
+If not → STOP.
+
+🟦 Phase 4 — Enter OpenMetadata Ingestion Runtime
+6️⃣ Exec into ingestion container
+
+(HOST MACHINE → CONTAINER)
+
+docker exec -it openmetadata_ingestion bash
+
+
+Prompt should change to:
+
+airflow@<container-id>:/opt/airflow$
+
+7️⃣ Verify OpenMetadata CLI exists
+
+(INSIDE CONTAINER)
+
+which metadata
+
+
+Expected:
+
+/home/airflow/.local/bin/metadata
+
+🟦 Phase 5 — Register Services in OpenMetadata
+8️⃣ Register all services (Kafka + SQL)
+
+(INSIDE CONTAINER)
+
+cd /opt/airflow
+./openmetadata/scripts/register_services.sh
+
+
+This registers:
+
+Kafka service
+
+SQL Server OLTP
+
+SQL Server Staging
+
+9️⃣ Verify services registered (API)
+
+(INSIDE CONTAINER)
+
+metadata service list
+
+
+You should see:
+
+kafka_aw
+
+sqlserver_oltp
+
+sqlserver_staging
+
+🟦 Phase 6 — Run Metadata Ingestion Pipelines
+🔟 Run all ingestion pipelines
+
+(INSIDE CONTAINER)
+
+./openmetadata/scripts/run_ingestion.sh
+
+
+This executes:
+
+Kafka topic ingestion
+
+SQL Server OLTP metadata ingestion
+
+SQL Server Staging metadata ingestion
+
+dbt lineage (if configured)
+
+1️⃣1️⃣ Check ingestion status
+
+(INSIDE CONTAINER)
+
+metadata ingest status
+
+
+Expected:
+
+SUCCESS
+
+🟦 Phase 7 — Validate Results (UI + DB)
+1️⃣2️⃣ Open OpenMetadata UI
+
+(BROWSER)
+
+http://localhost:8585
+
+
+Login:
+
+user: admin
+
+password: admin
+
+1️⃣3️⃣ Validate entities
+✔ Services
+
+Kafka
+
+SQL Server (OLTP)
+
+SQL Server (Staging)
+
+✔ Kafka
+
+Topics:
+
+aw.AdventureWorks2022.Sales.SalesOrderHeader
+
+aw.AdventureWorks2022.Sales.SalesOrderDetail
+
+✔ Tables
+
+AdventureWorks_Staging.bronze.*
+
+✔ Lineage
+Kafka Topic
+   ↓
+Bronze Table
+
+🟦 Phase 8 — CDC Validation (Critical)
+1️⃣4️⃣ Trigger a CDC event
+
+(HOST MACHINE)
+
+docker exec -it sqlserver \
+  /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P "$SA_PASSWORD" -C
+
+USE AdventureWorks2022;
+GO
+UPDATE Sales.SalesOrderHeader
+SET RevisionNumber = RevisionNumber
+WHERE SalesOrderID = 43659;
+GO
+
+1️⃣5️⃣ Confirm Bronze ingestion
+
+(HOST MACHINE)
+
+docker exec -it sqlserver \
+  /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P "$SA_PASSWORD" -C
+
+USE AdventureWorks_Staging;
+GO
+SELECT COUNT(*) FROM bronze.aw_AdventureWorks2022_Sales_SalesOrderHeader;
+GO
+
+🏁 DONE — Platform Is Live
+
+You now have:
+
+✅ SQL Server CDC
+✅ Kafka Topics
+✅ Bronze Landing Zone
+✅ OpenMetadata Governance
+✅ Lineage
+✅ Reproducible bootstrap
+
+This is industry-grade.
+
+🔜 Next Enhancements (Optional)
+
+Add Airflow scheduling
+
+Add PII classification
+
+Add DQ checks
+
+Add Gold layer lineage

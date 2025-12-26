@@ -1,0 +1,10 @@
+name: sqlserver_staging
+serviceType: Mssql  # ← Change from MSSQL to SqlServer
+description: Staging SQL Server for CDC landing
+connection:
+  config:
+    hostPort: sqlserver:1433
+    database: AdventureWorks_Staging
+    username: sa
+    password: ${MSSQL_SA_PASSWORD}
+    encrypt: false
