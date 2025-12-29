@@ -2,6 +2,8 @@
 set -e
 
 OM_JWT=$(cat secrets/openmetadata_jwt)
+# Add this line near the top of ./bootstrap/03-register-openmetadata.sh
+export SQLSERVER_PASSWORD=$(cat secrets/sqlserver_password)
 
 register() {
   local TYPE=$1
@@ -32,8 +34,12 @@ register() {
   echo "Creating $NAME..."
 
   # Convert YAML to JSON with jq 1.7+
-  local JSON_PAYLOAD=$(yq . "$FILE")
-
+  # Use 'envsubst' to replace ${SQLSERVER_PASSWORD} with the actual value
+  # before passing it to yq or the curl command
+  local RAW_YAML=$(envsubst < "$FILE")
+  local JSON_PAYLOAD=$(echo "$RAW_YAML" | yq .)
+  #local JSON_PAYLOAD=$(yq . "$FILE")
+  
   if [ -z "$JSON_PAYLOAD" ] || [ "$JSON_PAYLOAD" = "null" ]; then
     echo "❌ Failed to convert $FILE to JSON"
     exit 1
@@ -53,5 +59,11 @@ register() {
 register messagingServices openmetadata/services/kafka.yml
 register databaseServices openmetadata/services/sqlserver_oltp.yml
 register databaseServices openmetadata/services/sqlserver_staging.yml
+
+docker exec dbt dbt clean
+docker exec dbt dbt deps
+docker exec dbt dbt debug
+docker exec dbt dbt run
+docker exec dbt dbt docs generate
 
 echo "✅ Registration complete"

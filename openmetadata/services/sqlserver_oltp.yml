@@ -6,5 +6,5 @@ connection:
     hostPort: sqlserver:1433
     database: AdventureWorks2022
     username: sa
-    password: ${MSSQL_SA_PASSWORD}
+    password: "${SQLSERVER_PASSWORD}"
     encrypt: false

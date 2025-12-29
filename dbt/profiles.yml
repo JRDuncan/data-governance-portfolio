@@ -13,4 +13,3 @@ adventureworks_profile:
       trust_cert: True
       encrypt: True
       authentication: 'sql'
-

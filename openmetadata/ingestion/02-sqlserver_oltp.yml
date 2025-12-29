@@ -13,10 +13,15 @@ source:
   sourceConfig:
     config:
       type: DatabaseMetadata  # Add this missing block
-      #databaseFilterPattern:
-      #  includes: [AdventureWorks2022]
-      #schemaFilterPattern:
-      #  includes: [Sales, Person, Production, dbo] # List the schemas you want
+      databaseFilterPattern:
+        includes: 
+          - AdventureWorks2022
+      schemaFilterPattern:
+        includes: # List the schemas you want 
+          - Sales
+          - Person
+          - Production
+          - dbo 
       includeTables: true
       includeViews: true
 sink:

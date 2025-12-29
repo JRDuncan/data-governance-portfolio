@@ -14,9 +14,11 @@ source:
     config:
       type: DatabaseMetadata
       databaseFilterPattern:
-        includes: [AdventureWorks_Staging]
+        includes: 
+          - AdventureWorks_Staging
       schemaFilterPattern:
-        includes: [dbo] # Most common, or specify your specific schema
+        includes: 
+          - dbo
       includeTables: true
 sink:
   type: metadata-rest
