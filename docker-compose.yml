@@ -27,6 +27,7 @@ services:
       ACCEPT_EULA: "Y"
       # This fixes your RUNNER_LOG_LEVEL warning
       RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
+      MSSQL_AGENT_ENABLED: true
     ports:
       - "1433:1433"
     expose:
@@ -59,7 +60,8 @@ services:
     env_file:
       - .env
     environment:
-       DBT_PROFILES_DIR: /app/dbt
+      DBT_PROFILES_DIR: /app/dbt
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -87,7 +89,7 @@ services:
     container_name: runner
     working_dir: /app
     environment:
-      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL}
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
       RUNNER_SCRIPT: /app/scripts/trigger-dbt.sh #${RUNNER_SCRIPT}
 
       # ➜ Required dbt vars
@@ -116,6 +118,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
     networks:
       - app_net
 
@@ -130,6 +133,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
     networks:
       - app_net
 
@@ -139,12 +143,17 @@ services:
     depends_on:
       - kafka
       - sqlserver
+    env_file:
+      - .env
     environment:
+      DB_USER: ${DB_USER:-SA}
+      DB_PASSWORD: ${MSSQL_SA_PASSWORD}
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: debezium
       CONFIG_STORAGE_TOPIC: debezium_configs
       OFFSET_STORAGE_TOPIC: debezium_offsets
       STATUS_STORAGE_TOPIC: debezium_status
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
     ports:
       - "8083:8083"
     networks:
@@ -169,6 +178,7 @@ services:
       GEN_MAX_INTERVAL: ${GEN_MAX_INTERVAL:-10}
       GEN_BATCH_SIZE: ${GEN_BATCH_SIZE:-1}
       RUN_ONCE: ${RUN_ONCE:-false}
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-debug}
     # ... other environment variables ...
     
     # ADD THIS LINE: Explicitly define the command using 'timeout 20m'
@@ -192,6 +202,7 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: password
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
     expose:
       - 3306
     ports:
@@ -213,6 +224,7 @@ services:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
       - xpack.security.enabled=false
+      - RUNNER_LOG_LEVEL=${RUNNER_LOG_LEVEL:-info}
     networks:
       - app_net
     ports:
@@ -692,6 +704,7 @@ services:
       # AIRFLOW__LINEAGE__AIRFLOW_SERVICE_NAME: local_airflow
       # AIRFLOW__LINEAGE__OPENMETADATA_API_ENDPOINT: http://openmetadata-server:8585/api
       # AIRFLOW__LINEAGE__JWT_TOKEN: ...
+      RUNNER_LOG_LEVEL: ${RUNNER_LOG_LEVEL:-info}
     entrypoint: /bin/bash
     command:
       - "/opt/airflow/ingestion_dependency.sh"

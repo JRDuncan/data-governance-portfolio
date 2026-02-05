@@ -42,71 +42,157 @@ echo "⚙️  Restoring AdventureWorksDW2022..."
 # ... (at the bottom of your existing script)
 echo "✅ Both databases restored successfully!"
 
-
+echo "⚙️  Create AdventureWorks_Staging..."
 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C <<'EOF'
 
--- Create staging database
+-- =============================================
+-- Create staging database + user (in one batch)
+-- =============================================
 IF DB_ID('AdventureWorks_Staging') IS NULL
-CREATE DATABASE AdventureWorks_Staging;
+    CREATE DATABASE AdventureWorks_Staging;
 GO
-
 USE AdventureWorks_Staging;
 GO
-
--- Schema represents a governed landing zone
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'bronze')
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'bronze')
+    EXEC('CREATE SCHEMA bronze');
+GO
+-- Create login/user/role membership (login is server-level, so only once)
+IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'cdc_sink_user')
+    CREATE LOGIN cdc_sink_user WITH PASSWORD = 'SinkStrongPassword!';
+GO
+USE AdventureWorks_Staging;
+GO
+IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'cdc_sink_user')
 BEGIN
-    EXEC('CREATE SCHEMA bronze');
+    CREATE USER cdc_sink_user FOR LOGIN cdc_sink_user;
+    ALTER ROLE db_datareader ADD MEMBER cdc_sink_user;
+    ALTER ROLE db_datawriter ADD MEMBER cdc_sink_user;
+END
+GO
+EOF
+
+echo "⚙️  Enable CDC..."
+/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C <<'EOF'
+USE AdventureWorks2022;
+GO
+
+-- 1. Enable CDC at DB level (idempotent)
+IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = DB_NAME() AND is_cdc_enabled = 1)
+BEGIN
+    EXEC sys.sp_cdc_enable_db;
+    PRINT 'CDC enabled at database level.';
+END
+ELSE
+    PRINT 'CDC already enabled at database level.';
+GO
+
+-- 2. Create gating role if missing
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'cdc_reader' AND type = 'R')
+BEGIN
+    CREATE ROLE cdc_reader;
+    PRINT 'Created cdc_reader role.';
 END
 GO
 
-USE AdventureWorks_Staging;
-GO
-CREATE LOGIN cdc_sink_user WITH PASSWORD = 'SinkStrongPassword!';
-CREATE USER cdc_sink_user FOR LOGIN cdc_sink_user;
-ALTER ROLE db_datareader ADD MEMBER cdc_sink_user;
-ALTER ROLE db_datawriter ADD MEMBER cdc_sink_user;
-GO
+-- 3. Table list + enable loop
+DECLARE @tables TABLE (SchemaName sysname NOT NULL, TableName sysname NOT NULL);
+INSERT INTO @tables (SchemaName, TableName)
+VALUES
+    ('Person', 'BusinessEntity'),
+    ('Person', 'Person'),
+    ('Person', 'Address'),
+    ('Person', 'BusinessEntityAddress'),
+    ('Person', 'EmailAddress'),
+    ('Person', 'PersonPhone'),
+    ('Sales', 'Customer'),
+    ('Sales', 'SalesOrderHeader'),
+    ('Sales', 'SalesOrderDetail')
+    -- Add ('Production', 'ProductInventory') if you need inventory changes captured
+;
 
-USE Adventureworks2022
-GO
+DECLARE 
+    @SchemaName sysname,
+    @TableName sysname,
+    @sql nvarchar(max),
+    @msg nvarchar(4000);
 
--- Enable CDC at DB level
-EXEC sys.sp_cdc_enable_db;
-GO
+DECLARE cur CURSOR LOCAL FAST_FORWARD FOR 
+    SELECT SchemaName, TableName FROM @tables;
 
--- Enable CDC on Sales tables
+OPEN cur;
+FETCH NEXT FROM cur INTO @SchemaName, @TableName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM cdc.change_tables 
+        WHERE source_object_id = OBJECT_ID(QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName))
+    )
+    BEGIN
+        PRINT CONCAT('CDC already enabled on ', @SchemaName, '.', @TableName);
+    END
+    ELSE
+    BEGIN
+        BEGIN TRY
+            SET @sql = N'
 EXEC sys.sp_cdc_enable_table
-  @source_schema = 'Sales',
-  @source_name = 'SalesOrderHeader',
-  @role_name = 'cdc_reader';
+    @source_schema         = @s,
+    @source_name           = @t,
+    @role_name             = ''cdc_reader'',
+    @supports_net_changes  = 1,
+    @captured_column_list  = NULL;';  -- NULL = capture all columns
+
+            EXEC sp_executesql 
+                @sql, 
+                N'@s sysname, @t sysname',
+                @s = @SchemaName, 
+                @t = @TableName;
+
+            PRINT CONCAT('CDC ENABLED successfully on ', @SchemaName, '.', @TableName);
+        END TRY
+        BEGIN CATCH
+            SET @msg = CONCAT('FAILED to enable CDC on ', @SchemaName, '.', @TableName, ': ', ERROR_MESSAGE());
+            PRINT @msg;
+            RAISERROR(@msg, 16, 1);  -- Fail the batch if any error
+        END CATCH
+    END
+
+    FETCH NEXT FROM cur INTO @SchemaName, @TableName;
+END
+
+CLOSE cur;
+DEALLOCATE cur;
 GO
 
-EXEC sys.sp_cdc_enable_table
-  @source_schema = 'Sales',
-  @source_name = 'SalesOrderDetail',
-  @role_name = 'cdc_reader';
+-- 4. NOW grant SELECT on cdc schema (after tables enabled → schema exists)
+IF EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'cdc')
+BEGIN
+    GRANT SELECT ON SCHEMA::cdc TO cdc_reader;
+    PRINT 'Granted SELECT on cdc schema to cdc_reader role.';
+END
+ELSE
+    PRINT 'cdc schema still missing – check enable failures above.';
 GO
 
--- Debezium service account
-CREATE LOGIN debezium_user WITH PASSWORD = 'DebeziumStrong!';
-CREATE USER debezium_user FOR LOGIN debezium_user;
-EXEC sp_addrolemember 'db_datareader', 'debezium_user';
+-- 5. Verification: List enabled capture instances
+SELECT 
+    s.name AS source_schema,
+    t.name AS source_table,
+    ct.capture_instance,
+    ct.start_lsn,
+    ct.end_lsn,
+    ct.supports_net_changes
+FROM cdc.change_tables ct
+INNER JOIN sys.tables t ON ct.source_object_id = t.object_id
+INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+WHERE s.name IN ('Person', 'Sales')
+ORDER BY s.name, t.name;
 GO
 
--- dbt service account
-CREATE LOGIN dbt_user WITH PASSWORD = 'DbtStrong!', CHECK_POLICY = OFF;
-CREATE USER dbt_user FOR LOGIN dbt_user;
-EXEC sp_addrolemember 'db_datareader', 'dbt_user';
-GO
-
-USE Adventureworks_Staging;
-CREATE USER dbt_user FOR LOGIN dbt_user;
-EXEC sp_addrolemember 'db_owner', 'dbt_user';
+PRINT 'CDC setup complete. If no rows above, check for errors in the loop.';
 GO
 
 EOF
 
 echo "SQL Server CDC and staging initialized."
-
 touch /tmp/init_finished

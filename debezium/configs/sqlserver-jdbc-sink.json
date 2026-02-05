@@ -3,10 +3,10 @@
   "config": {
     "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
     "tasks.max": "1",
-    "topics": "aw.AdventureWorks2022.Sales.SalesOrderHeader,aw.AdventureWorks2022.Sales.SalesOrderDetail",
+    "topics": "aw.AdventureWorks2022.Person.BusinessEntity, aw.AdventureWorks2022.Person.Person, aw.AdventureWorks2022.Person.Address, aw.AdventureWorks2022.Person.BusinessEntityAddress, aw.AdventureWorks2022.Person.EmailAddress, aw.AdventureWorks2022.Person.PersonPhone, aw.AdventureWorks2022.Sales.Customer, aw.AdventureWorks2022.Sales.SalesOrderHeader, aw.AdventureWorks2022.Sales.SalesOrderDetail, aw.AdventureWorks2022.Production.ProductInventory",
     "connection.url": "jdbc:sqlserver://sqlserver:1433;databaseName=AdventureWorks_Staging;encrypt=true;trustServerCertificate=true",
-    "connection.username": "dbt_user",
-    "connection.password": "DbtStrong!",
+    "connection.username": "SA",
+    "connection.password": "YourStrong!Passw0rd",
     "insert.mode": "upsert",
     "primary.key.mode": "record_key",
     "table.name.format": "bronze_${topic}",

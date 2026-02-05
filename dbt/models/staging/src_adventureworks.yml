@@ -7,8 +7,32 @@ sources:
     description: "Bronze CDC tables from Kafka (Debezium)"
 
     tables:
+      - name: bronze_aw_AdventureWorks2022_Person_BusinessEntity
+        description: "CDC Bronze table for BusinessEntity"
+
+      - name: bronze_aw_AdventureWorks2022_Person_Person
+        description: "CDC Bronze table for Person"        
+
+      - name: bronze_aw_AdventureWorks2022_Person.Address
+        description: "CDC Bronze table for Address"
+
+      - name: bronze_aw_AdventureWorks2022_Person_BusinessEntityAddress
+        description: "CDC Bronze table for BusinessEntityAddress"        
+
+      - name: bronze_aw_AdventureWorks2022_Person_EmailAddress
+        description: "CDC Bronze table for EmailAddress"
+
+      - name: bronze_aw_AdventureWorks2022_Person_PersonPhone
+        description: "CDC Bronze table for PersonPhone"
+
+      - name: bronze_aw_AdventureWorks2022_Sales_Customer
+        description: "CDC Bronze table for Customer"
+
       - name: bronze_aw_AdventureWorks2022_Sales_SalesOrderHeader
         description: "CDC Bronze table for SalesOrderHeader"
 
       - name: bronze_aw_AdventureWorks2022_Sales_SalesOrderDetail
-        description: "CDC Bronze table for SalesOrderDetail"
+        description: "CDC Bronze table for SalesOrderDetail"        
+        
+      - name: bronze_aw_AdventureWorks2022_Production_ProductInventory
+        description: "CDC Bronze table for ProductInventory"        

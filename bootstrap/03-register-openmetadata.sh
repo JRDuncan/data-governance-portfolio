@@ -60,10 +60,15 @@ register messagingServices openmetadata/services/kafka.yml
 register databaseServices openmetadata/services/sqlserver_oltp.yml
 register databaseServices openmetadata/services/sqlserver_staging.yml
 
-docker exec dbt dbt clean
+echo "Clean dbt"
+docker exec dbt dbt clean 
+echo "Install dbt dependencies"
 docker exec dbt dbt deps
+echo "Debug dbt"
 docker exec dbt dbt debug
+echo "Run dbt"
 docker exec dbt dbt run
+echo "Dbt generate docs"
 docker exec dbt dbt docs generate
 
 echo "✅ Registration complete"
